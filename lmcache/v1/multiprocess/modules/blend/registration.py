@@ -90,12 +90,17 @@ class RegistrationMixin:
         # Zero caches is legal (NoPE): rope state still carries scatter
         # geometry; every re-RoPE consumer skips.
         if group_to_cache:
-            if min(group_to_cache) < 0 or max(group_to_cache) >= len(
+            # -1 is the declared "no rope for this engine group" sentinel —
+            # recurrent-state (mamba/GDN) and aux-plane groups of hybrid
+            # models carry no rotary content, and treating them as cache 0
+            # under a uniform map would rotate (or geometry-fail on) planes
+            # that must pass through untouched.
+            if min(group_to_cache) < -1 or max(group_to_cache) >= len(
                 cos_sin_caches_ipc
             ):
                 raise ValueError(
                     f"group_to_cache {group_to_cache} contains indices outside "
-                    f"[0, {len(cos_sin_caches_ipc)}) for the sent cache(s)."
+                    f"[-1, {len(cos_sin_caches_ipc)}) for the sent cache(s)."
                 )
             # Every engine group needs a mapping; fail here, not mid-retrieve.
             max_eg_idx = max(

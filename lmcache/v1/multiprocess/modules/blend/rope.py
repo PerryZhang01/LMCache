@@ -55,6 +55,15 @@ class _CBRopeState:
         Raises:
             RuntimeError: If ``engine_group_idx`` is outside a non-empty map.
         """
+        if (
+            self.group_to_cache
+            and 0 <= engine_group_idx < len(self.group_to_cache)
+            and self.group_to_cache[engine_group_idx] < 0
+        ):
+            # Declared rope-less group (recurrent state / aux plane): skip
+            # re-RoPE entirely, before the legacy (0, head_size) default can
+            # claim it.
+            return None
         if not self.group_rot:
             return (0, self.head_size)
         if dtype is not None and not dtype.is_floating_point:
@@ -80,6 +89,11 @@ class _CBRopeState:
             return None
         if not self.group_to_cache:
             return self.cos_sin_caches[0]
+        if (
+            0 <= engine_group_idx < len(self.group_to_cache)
+            and self.group_to_cache[engine_group_idx] < 0
+        ):
+            return None  # declared rope-less group (recurrent state / aux)
         if engine_group_idx >= len(self.group_to_cache):
             raise RuntimeError(
                 f"CB re-RoPE: engine group {engine_group_idx} has no rope "
